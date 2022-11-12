@@ -1,0 +1,145 @@
+// Modified Version of Needham-Schroeder Public-Key Protocol
+
+//library
+#import "Lib_v0+equal+know";
+
+//network
+//cs: type 0 messages {x1,x2}/{x1,x2}SK{x3}
+//ca: type 1 messages {x1,x2}PK{x3}
+//cb: type 2 messages {x1}PK{x2}
+channel cs 0;
+channel ca 0;
+channel cb 0;
+
+//A is Alice, the initiator;
+//B is Bob, the responder;
+//S is a trusted Server to distribute public keys on requests;
+//Na is the Nonce A;
+//Nb is the Nonce B;
+//gD is the generic Data;
+
+var<Constant> A = new Constant();
+var<Constant> B = new Constant();
+var<Constant> S = new Constant();
+
+var<Nonce> Na=new Nonce();
+var<Nonce> Nb=new Nonce();
+
+//Generate Sk and PK of A, B, S
+var<SKey> SKa=new SKey();
+var<PKey> PKa=new PKey(SKa);
+var<SKey> SKb = new SKey();
+var<PKey> PKb=new PKey(SKb);
+var<SKey> SKs=new SKey();
+
+
+//IniRunningAB is true iff initiator A takes part in a session of the protocol with B.
+var IniRunningAB = false;
+//IniCommitAB is true iff initiator A commits to a session with B.
+var IniCommitAB = false;
+//ResRunningAB is true iff responder B takes part in a session of the protocol with A.
+var ResRunningAB = false;
+//ResCommitAB is true iff responder B commits to a session with A.
+var ResCommitAB = false;
+
+
+//Server
+var<SEnc> cipherSer;
+
+PSer(sender, receiver) =
+	cs?[sender.Constantequal(s)==true && receiver.Constantequal(r)==true]s.r ->
+	//receiving {sender, receiver}
+
+	tau{cipherSer=new SEnc(new Pair(PKb,r), SKs);} ->
+
+	//sending {PKreceiver, receiver}SK{server}
+	cs!cipherSer ->
+
+	cs?[sender.Constantequal(s)==true && receiver.Constantequal(r)==true]r.s ->
+	//receiving {receiver, sender}
+
+	tau{cipherSer=new SEnc(new Pair(PKa,s), SKs);} ->
+
+	//sending {PKsender, sender}SK{server}
+	cs!cipherSer -> Skip;
+
+
+
+//Initiator
+var<SDec> sdecIni;
+var<PEnc> cipherIni;
+var<PDec> decipherIni;
+var<Nonce> g0;
+var<Nonce> g1;
+var<Pair> iniPair;
+var<PKey> PKres;
+
+PIni(sender, receiver, nonce) =
+	IniRunning_AB { if (A.Constantequal(sender) && B.Constantequal(receiver)) { IniRunningAB = true; } } ->
+
+	//sending {sender, receiver} to request receiver's PK
+	cs!sender.receiver ->
+
+	cs?[xcipher.IsSEnc()==true]xcipher ->
+	//receiving {PKreceiver, receiver}SK{server}
+
+	tau{sdecIni=new SDec(xcipher,SKs); iniPair=sdecIni.result(); if(iniPair.IsPair()==true && receiver.Constantequal(iniPair.getsecond())==true){PKres=iniPair.getfirst(); cipherIni=new PEnc(new Pair(nonce,sender), new Nonce(), PKres);}} ->
+
+	//sending {Na, sender}Pk{receiver}
+	ca!cipherIni ->
+
+	ca?[xcipher.IsPEnc()==true]xcipher ->
+	//receiving {Na/g0, Nb/g1}Pk{sender}
+
+	tau{decipherIni=new PDec(xcipher,SKa); iniPair=decipherIni.result(); if(iniPair.IsPair()==true){g0=iniPair.getfirst(); g1=iniPair.getsecond();}} ->
+
+	IniCommit_AB { if (A.Constantequal(sender) && B.Constantequal(receiver) && g0.Nonceequal(nonce)==true) { IniCommitAB = true; } } ->
+
+	tau{cipherIni=new PEnc(g1, new Nonce(), PKres)} ->
+	//sending {Nb/g1}Pk{receiver}
+	cb!cipherIni -> Skip;
+
+
+
+
+//Responder
+var<SDec> sdecRes;
+var<PEnc> cipherRes;
+var<PDec> decipherRes;
+var<Nonce> g2;
+var<Constant> g3;
+var<Nonce> g4;
+var<Nonce> resNonce;
+var<Pair> resPair;
+var<PKey> PKini;
+
+PRes(receiver, nonce) =
+	ca?[xcipher.IsPEnc()==true]xcipher ->
+	//receiving {Na/g2, sender/g3}Pk{receiver}
+
+	tau{decipherRes=new PDec(xcipher,SKb); resPair=decipherRes.result(); if(resPair.IsPair()==true){g2=resPair.getfirst(); g3=resPair.getsecond();}} ->
+
+	ResRunning_AB { if (g3.Constantequal(A) && B.Constantequal(receiver)) { ResRunningAB = true; } } ->
+
+
+	//sending {receiver, sender/g3} to request sender's PK
+	cs!receiver.g3 ->
+
+
+	cs?[xcipher.IsSEnc()==true]xcipher ->
+	//receiving {PKsender, sender}SK{server}
+
+	tau{sdecRes=new SDec(xcipher,SKs); resPair=sdecRes.result(); if(resPair.IsPair()==true && g3.Constantequal(resPair.getsecond())==true){PKini=resPair.getfirst(); cipherRes=new PEnc(new Pair(g2,nonce), new Nonce(), PKini);}} ->
+
+	//sending {Na/g2, Nb}Pk{sender/g3}
+	ca!cipherRes ->
+
+	cb?[xcipher.IsPEnc()==true]xcipher ->
+	//receiving {Nb/g4}Pk{receiver}
+
+	tau{decipherRes=new PDec(xcipher,SKb); resNonce=decipherRes.result(); if(resNonce.IsNonce()==true){g4=resNonce;}} ->
+
+	ResCommit_AB { if (A.Constantequal(g3) && B.Constantequal(receiver) && g4.Nonceequal(nonce)==true) { ResCommitAB = true; } } -> Skip;
+
+
+Protocol = PSer(A, B) || PIni(A, B, Na) || PRes(B, Nb);

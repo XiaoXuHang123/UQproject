@@ -1,0 +1,5 @@
+doskey antlr4vpy3=java org.antlr.v4.Tool -Dlanguage=Python3 -no-listener -visitor $*
+
+antlr4vpy3 PlSqlLexer.g4
+
+antlr4vpy3 PlSqlParser.g4
