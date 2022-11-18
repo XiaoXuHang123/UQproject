@@ -1,0 +1,21 @@
+#import "Lib_v0+equal+know";
+
+var<Key> k1 = new Key();
+var<SKey> skA4 = new SKey();
+var<SKey> skB6 = new SKey();
+var<PKey> pkA7= new PKey(skA4);
+var<PKey> pkB8= new PKey(skB6);
+var<Key> key=new Key();
+var<SEnc> senc;
+var<SDec> sdec;
+var<AEnc> aenc;
+var<ADec> adec;
+var<Sign> sign;
+var<GetSignMsg> checksign;
+channel c 0;
+var pkX
+var x;
+var s;
+clientA(pkA,skA,pkB)=c!pkA -> c?x -> tau{adec = new ADec(x,skA);} -> tau{2checksign = new GetSignMsg(adec.result(),pkB);} -> tau{senc = new SEnc(s,k1);} -> c!senc->clientA(pkA,skA,pkB);
+serverB(pkB,skB)=c?[pkX.IsPKey() == true]pkX -> tau{sign = new Sign(new Pair(pkB,k1),skB);} -> tau{aenc = new AEnc(sign,pkX);} -> c!aenc -> c?x -> tau{sdec = new SDec(x,k1);}->serverB(pkB,skB);
+p()=	((clientA(pkA7,skA4,pkB8))|| (serverB(pkB8,sk1B6)));
