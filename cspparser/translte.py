@@ -26,10 +26,14 @@ def parseProcessLine(cod, pna):
         ap += '\tlet checksign = checksign(adec,pkB) in\n'
     elif cod.find('new Pair(') != -1:
         ap += '\tlet sign= sign((pkB,k),pkX)\n'# @HARD
-    elif cod == '%s(%s);' % (pna[0],pna[1]): #trim the loop code
+    elif cod == '%s(%s);' % (pna[0],pna[1]): #collect the loop process names
         ap + ''
+        funloop.append(pna[0])
     else:
-        ap += '\t%s\n' % cod
+        tmp = ('\t%s\n' % cod)
+        for f in funloop:
+            tmp = tmp.replace('%s(' % f, '!%s(' % f)#
+        ap += tmp
 
 # Parse variables that declared at beginning of csp codes
 def parseDeclare(cod):
@@ -43,6 +47,8 @@ def parseDeclare(cod):
 ap = '\n'
 # ap declarations
 apdc = '\n'
+# loop-process names
+funloop = []
 parseDeclare(src)
 # Extract channel and translate
 c = re.compile(r'channel\s+(\w+)\s+\d+\s*;', re.I|re.M|re.S).findall(src)
@@ -65,8 +71,7 @@ for i in range(0,pcnt):
     if pcnt - i > 1:
         ap += 'let %s(%s)=\n' % (pn[i][0],pn[i][1])
     else: # Last process, which is THE MAIN process. @HARD
-        ap += 'process\n	new skA:skey;\n	new skB:sskey;\n	let pkA = pk(skA) in\n	out(c,pkA);\n	let pkB = spk(skB) in\n	out(c,pkB);\n	((!clientA(pkA,skA,pkB)) | (!serverB(pkB,skB)))'
-        continue
+        ap += 'process\n	new skA4:skey;\n	new skB6:sskey;\n	let pkA7 = pk(skA4) in\n	out(c,pkA7);\n	let pkB8 = spk(skB) in\n	out(c,pkB8);\n'
     lines = re.split('\s*->\s*', prc[i][prc[i].find('=')+1:])
     #print(lines)
     for j in lines:  # Parse process codes line by line

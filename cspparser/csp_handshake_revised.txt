@@ -16,6 +16,6 @@ channel c 0;
 var pkX
 var x;
 var s;
-clientA(pkA,skA,pkB)=c!pkA -> c?x -> tau{adec = new ADec(x,skA);} -> tau{2checksign = new GetSignMsg(adec.result(),pkB);} -> tau{senc = new SEnc(s,k1);} -> c!senc->clientA(pkA,skA,pkB);
+clientA(pkA,skA,pkB)=c!pkA -> c?x -> tau{adec = new ADec(x,skA);} -> tau{checksign = new GetSignMsg(adec.result(),pkB);} -> tau{senc = new SEnc(s,k1);} -> c!senc->clientA(pkA,skA,pkB);
 serverB(pkB,skB)=c?[pkX.IsPKey() == true]pkX -> tau{sign = new Sign(new Pair(pkB,k1),skB);} -> tau{aenc = new AEnc(sign,pkX);} -> c!aenc -> c?x -> tau{sdec = new SDec(x,k1);}->serverB(pkB,skB);
-p()=	((clientA(pkA7,skA4,pkB8))|| (serverB(pkB8,sk1B6)));
+p()=	((clientA(pkA7,skA4,pkB8))|| (serverB(pkB8,skB6)));
